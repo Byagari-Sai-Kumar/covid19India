@@ -26,6 +26,35 @@ const initializeDBAndServer = async () => {
 
 initializeDBAndServer();
 
+const objectSnakeToCamel = (newObject) => {
+  return {
+    stateId: newObject.state_id,
+    stateName: newObject.state_name,
+    population: newObject.population,
+  };
+};
+
+const districtSnakeToCamel = (newObject) => {
+  return {
+    districtId: newObject.district_id,
+    districtName: newObject.district_name,
+    stateId: newObject.state_id,
+    cases: newObject.cases,
+    cured: newObject.cured,
+    active: newObject.active,
+    deaths: newObject.deaths,
+  };
+};
+
+const reportSnakeToCamelCase = (newObject) => {
+  return {
+    totalCases: newObject.cases,
+    totalCured: newObject.cured,
+    totalActive: newObject.active,
+    totalDeaths: newObject.deaths,
+  };
+};
+
 //get states API1
 app.get("/states/", async (request, response) => {
   const getStatesQuery = `
@@ -36,24 +65,32 @@ app.get("/states/", async (request, response) => {
 
   const states = await db.all(getStatesQuery);
 
-  response.send(states);
+  const statesResult = states.map((eachObject) => {
+    return objectSnakeToCamel(eachObject);
+  });
+  response.send(statesResult);
 });
 
 //get single state API2
 app.get("/states/:stateId/", async (request, response) => {
-  const { state_id } = request.params;
+  const { stateId } = request.params;
 
   const getStateQuery = `
     SELECT
     *
-    FROM
+    FRO
     state
     WHERE 
-    state_id = ${state_id};`;
+    state_id = ${stateId};`;
 
-  const state = await db.get(getStateQuery);
+  try {
+    const state = await db.get(getStateQuery);
 
-  response.send(state);
+    const stateResult = objectSnakeToCamel(state);
+    response.send(stateResult);
+  } catch (error) {
+    console.log(error.message);
+  }
 });
 
 //create district API3
@@ -73,10 +110,10 @@ app.post("/districts/", async (request, response) => {
     INSERT INTO district
     (district_name,state_id,cases,cured,active,deaths)
     VALUES
-    (${districtName},
+    ('${districtName}',
         ${stateId},
         ${cases},
-        ${curved},
+        ${cured},
         ${active},
         ${deaths});`;
 
@@ -99,7 +136,9 @@ app.get("/districts/:districtId/", async (request, response) => {
 
   const district = await db.get(getDistrictQuery);
 
-  response.send(district);
+  const districtResult = districtSnakeToCamel(district);
+
+  response.send(districtResult);
 });
 
 //delete district API5
@@ -136,7 +175,7 @@ app.put("/districts/:districtId/", async (request, response) => {
     UPDATE 
     district
     SET
-    district_name = ${districtName},
+    district_name = '${districtName}',
     state_id = ${stateId},
     cases = ${cases},
     cured = ${cured},
@@ -156,10 +195,10 @@ app.get("/states/:stateId/stats/", async (request, response) => {
 
   const getStatisticsQuery = `
     SELECT
-    cases AS totalCases,
-    cured AS totalCured,
-    active AS totalActive,
-    deaths AS totalDeaths
+    SUM(cases) AS cases,
+    SUM(cured) AS cured,
+    SUM(active) AS active,
+    SUM(deaths) AS deaths
     FROM
     district
     WHERE 
@@ -167,7 +206,9 @@ app.get("/states/:stateId/stats/", async (request, response) => {
 
   const statistics = await db.get(getStatisticsQuery);
 
-  response.send(statistics);
+  const resultReport = reportSnakeToCamelCase(statistics);
+
+  response.send(resultReport);
 });
 
 //get district name API8
@@ -176,7 +217,7 @@ app.get("/districts/:districtId/details/", async (request, response) => {
 
   const getDistrictNameQuery = `
     SELECT
-    state_name AS stateName
+    state_name 
     FROM
     state
     INNER JOIN district
@@ -186,7 +227,7 @@ app.get("/districts/:districtId/details/", async (request, response) => {
 
   const stateName = await db.get(getDistrictNameQuery);
 
-  response.send(stateName);
+  response.send({ stateName: stateName.state_name });
 });
 
 module.exports = app;
